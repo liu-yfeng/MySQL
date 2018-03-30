@@ -1,0 +1,16 @@
+[Unit]
+Description=MySQL Server 5.7.21
+Documentation=man:mysqld(8)
+Documentation=http://dev.mysql.com/doc/refman/en/using-systemd.html
+After=network.target
+After=syslog.target
+
+[Install]
+WantedBy=multi-user.target
+
+[Service]
+User=mysql
+Group=mysql
+ExecStart=/usr/local/mysql-5.7.21-linux-glibc2.12-x86_64/bin/mysqld_safe --defaults-file=/data/mysql57/my.cnf
+LimitNOFILE=65535
+
