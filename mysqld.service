@@ -1,3 +1,6 @@
+# touch /usr/lib/systemd/system/mysqld.service
+ cd /usr/lib/systemd/system
+
 [Unit]
 Description=MySQL Server 5.7.21
 Documentation=man:mysqld(8)
