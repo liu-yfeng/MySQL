@@ -1,44 +1,50 @@
 #!/bin/bash
-#数据库IP
-dbserver='x.x.x.x'
-#数据库用户名
-dbuser='xxx'
-#数据库密码
-dbpasswd='xxxxx'
-#备份数据库,多个库用空格隔开
-dbname='xxx'
-#备份时间
-backtime=`date +%Y%m%d%H%M`
-out_time=`date +%Y%m%d%H%M%S`
-#备份输出路径
+# 数据库IP
+dbserver='192.168.2.23'
+# 数据库用户名
+dbuser='root'
+# 数据库密码
+dbpasswd='123456'
+# 备份数据库,多个库用空格隔开
+dbname='xxx mytest'
+# 备份时间
+backtime=`date +%Y%m%d%H%M%S`
+# 备份输出路径
 backpath='/data/backup/mysql/'
-logpath='/data/backup/logs/'
+logfile='/data/backup/mysql/backup.log'
 
-echo "################## ${backtime} #############################" 
-echo "开始备份" 
-#日志记录头部
-echo "" >> ${logpath}/${dbname}_backup.log
-echo "-------------------------------------------------" >> ${logpath}/${dbname}_backup.log
-echo "备份开始时间为${backtime},备份数据库 ${dbname} 开始" >> ${logpath}/${dbname}_backup.log
+# 检查相关目录是否存在
+if [ ! -d ${backpath} ];then
+    mkdir -p ${backpath}
+else
+    echo "The backup directory already exists!" > /dev/null
+fi
 
-#正式备份数据库
+# echo "################## ${backtime} #############################" 
+# echo "开始备份" 
+# 日志记录头部
+echo "" >> ${logfile}
+echo "--------------------- ${backtime} ----------------------------" >> ${logfile}
+
+# 正式备份数据库
 for DB in $dbname; do
-  source=`/usr/local/mysql5.7.21/bin/mysqldump  -h ${dbserver} -u ${dbuser} -p${dbpasswd} ${DB} > ${backpath}/${DB}-${out_time}.sql` 2>> ${logpath}/${dbname}_backup.log;
-  #备份成功以下操作
-  if [ "$?" == 0 ];then
-    cd $backpath
-    #为节约硬盘空间，将数据库压缩
-    tar jcf ${DB}-${out_time}.tar.gz ${DB}-${out_time}.sql > /dev/null
-    #删除原始文件，只留压缩后文件
-    rm -f ${DB}-${out_time}.sql
-    #删除15天前备份，也就是只保存15天内的备份
-    find $backpath -name "*.tar.gz" -type f -mtime +15 -exec rm -rf {} \; > /dev/null 2>&1
-    echo "数据库 ${dbname} 备份成功!!" >> ${logpath}/${dbname}_backup.log
-  else
-  #备份失败则进行以下操作
-  echo "数据库 ${dbname} 备份失败!!" >> ${logpath}/${dbname}_backup.log
-  fi
+    echo "备份开始时间为: `date +%Y%m%d%H%M`,备份数据库为: ${DB}" >> ${logfile}
+    /usr/local/mysql57/bin/mysqldump  -S /data/mysql/3306/logs/mysqld.sock -h${dbserver} -u${dbuser} -p${dbpasswd} --single-transaction --master-data=2 --set-gtid-purged=OFF -R -E --triggers ${DB} > ${backpath}/${DB}-${backtime}.sql
+    # 备份成功以下操作
+        if [ "$?" == 0 ];then
+            cd $backpath
+    # 为节约硬盘空间，将数据库压缩
+            tar jcf ${DB}-${backtime}.tar.gz ${DB}-${backtime}.sql >> /dev/null 2>&1
+    # 删除原始文件，只留压缩后文件
+            rm -f ${DB}-${backtime}.sql
+    # 删除15天前备份，也就是只保存15天内的备份
+            find $backpath -name "*.tar.gz" -type f -mtime +15 -delete >> /dev/null 2>&1
+            echo "数据库 ${DB} 备份成功!!" >> ${logfile}
+        else
+    # 备份失败则进行以下操作
+            echo "数据库 ${DB} 备份失败!!" >> ${logfile}
+        fi
 done
 
-echo "完成备份"
-echo "################## ${backtime} #############################"
+echo "完成备份" >> ${logfile}
+echo "------------------- `date +%Y%m%d%H%M%S` ------------------------" >> ${logfile}
