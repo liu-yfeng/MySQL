@@ -1,0 +1,76 @@
+#!/bin/bash
+# 判断是否星期五
+today=`date +%w`
+# 数据库IP
+dbserver='127.0.0.1'
+# 数据库用户名
+dbuser='backup'
+# 数据库密码
+dbpasswd='backup'
+# 备份数据库,多个库用空格隔开
+dbname='xxxx'
+# 备份时间
+backtime=`date +%Y%m%d%H%M%S`
+# 备份输出路径
+backpath='/mydata/mysql_back/'
+logfile='/mydata/mysql_back/backup.log'
+# 命令路径
+pro='/usr/local/mysql/bin'
+
+# 检查相关目录是否存在
+if [ ! -d ${backpath} ];then
+    mkdir -p ${backpath}
+else
+    echo "The backup directory already exists!" > /dev/null
+fi
+
+chk_status(){
+    if [ "$?" == 0 ];then
+        cd $backpath
+    # 为节约硬盘空间，将数据库压缩
+        tar jcf ${DB}-${backtime}.tar.gz ${DB}-${backtime}.sql >> /dev/null 2>&1
+    # 删除原始文件，只留压缩后文件
+        rm -f ${DB}-${backtime}.sql
+    # 删除30天前备份，也就是只保存30天内的备份
+    #        find $backpath  -type f -mtime +30 -delete >> /dev/null 2>&1
+        echo "数据库 ${DB} 备份成功!!" >> ${logfile}
+    else
+    # 备份失败则进行以下操作
+        echo "数据库 ${DB} 备份失败!!" >> ${logfile}
+    fi
+}
+
+full_backup(){
+    ${pro}/mysqldump -u${dbuser} -h${dbserver} -p${dbpasswd} --single-transaction --master_data=2 -A > ${backpath}/fullbackup-${backtime}.sql
+    if [ "$?" == 0 ];then
+        cd $backpath
+    # 为节约硬盘空间，将数据库压缩
+        tar jcf fullbackup-${backtime}.tar.gz fullbackup-${backtime}.sql >> /dev/null 2>&1 
+    # 删除原始文件，只留压缩后文件
+        rm -f fullbackup-${backtime}.sql
+    # 删除30天前备份，也就是只保存30天内的备份
+    #        find $backpath  -type f -mtime +30 -delete >> /dev/null 2>&1
+        echo "数据库 全库 备份成功!!" >> ${logfile}
+    else
+    # 备份失败则进行以下操作
+        echo "数据库 全库 备份失败!!" >> ${logfile}
+    fi
+}
+
+# 日志记录头部
+echo "--------------------- ${backtime} ----------------------------" >> ${logfile}
+
+if [ $today -ge 1 ] || [ $today -ge 5 ];then
+    echo "备份开始时间为: `date +%Y%m%d%H%M`,备份数据库为: 全库备份!" >> ${logfile}
+    full_backup
+else
+# 正式备份数据库
+for DB in $dbname; do
+    echo "备份开始时间为: `date +%Y%m%d%H%M`,备份数据库为: ${DB}" >> ${logfile}
+    ${pro}/mysqldump -h${dbserver} -u${dbuser} -p${dbpasswd} --single-transaction --master-data=2 -R -E --triggers ${DB} > ${backpath}/${DB}-${backtime}.sql
+    chk_status
+done
+fi
+echo "完成备份" >> ${logfile}
+echo "------------------- `date +%Y%m%d%H%M%S` ------------------------" >> ${logfile}
+echo "$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$" >> ${logfile}
